@@ -28,6 +28,7 @@ import pandas as pd
 import requests
 from dotenv import load_dotenv
 import json
+from sqlalchemy import create_engine
 
 # Chargement des variables d'environnement depuis le fichier .env
 load_dotenv()
@@ -38,6 +39,41 @@ longitude = 2.3200410217200766
 
 # Configuration des unités : "metric" pour Celsius, m/s, hPa
 units = "metric"
+
+def connection_string():
+    """
+    Récupère la chaîne de connexion à la base de données depuis les variables d'environnement.
+    
+    Returns:
+        str: Chaîne de connexion au format PostgreSQL.
+    
+    Note:
+        Utilise les variables d'environnement suivantes :
+        - POSTGRES_USER
+        - POSTGRES_PASSWORD
+        - POSTGRES_HOST
+        - POSTGRES_PORT
+        - POSTGRES_DB
+    """
+    user = os.getenv("POSTGRES_USER")
+    password = os.getenv("POSTGRES_PASSWORD")
+    host = os.getenv("POSTGRES_HOST")
+    port = os.getenv("POSTGRES_PORT")
+    db_name = os.getenv("POSTGRES_DB")
+
+    return f"postgresql://{user}:{password}@{host}:{port}/{db_name}"
+
+def save_to_db(df, table_name="weather"):
+    """
+    Sauvegarde le DataFrame dans la base de données PostgreSQL.
+    
+    Args:
+        df (pandas.DataFrame): DataFrame à sauvegarder.
+        table_name (str): Nom de la table dans laquelle sauvegarder les données.
+    """
+    engine = create_engine(connection_string())
+    df.to_sql(table_name, engine, if_exists='append', index=False)
+    print(f"Données météo sauvegardées dans la table '{table_name}'.")
 
 def ingest_weather_data():
     """
@@ -113,4 +149,8 @@ def ingest_weather_data():
     return df
 
 if __name__ == "__main__":
-    ingest_weather_data()
+    df = ingest_weather_data()
+    if not df.empty:
+        save_to_db(df, table_name="weather")
+    else:
+        print("Aucune donnée météo à sauvegarder.")

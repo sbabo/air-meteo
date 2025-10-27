@@ -26,6 +26,7 @@ import requests
 import json
 import os
 from dotenv import load_dotenv
+from sqlalchemy import create_engine
 
 # Chargement des variables d'environnement depuis le fichier .env
 load_dotenv()
@@ -35,6 +36,44 @@ COUNTRY_ID = 22  # ID pour la France dans l'API OpenAQ
 latitude = 48.8588897    # Latitude de Paris (Notre-Dame)
 longitude = 2.3200410217200766  # Longitude de Paris (Notre-Dame)
 locations_id = []  # Liste pour stocker les IDs de locations (actuellement non utilisée)
+
+def connection_string():
+    """
+    Récupère la chaîne de connexion à la base de données depuis les variables d'environnement.
+    
+    Returns:
+        str: Chaîne de connexion au format PostgreSQL.
+    
+    Note:
+        Utilise les variables d'environnement suivantes :
+        - POSTGRES_USER
+        - POSTGRES_PASSWORD
+        - POSTGRES_HOST
+        - POSTGRES_PORT
+        - POSTGRES_DB
+    """
+    user = os.getenv("POSTGRES_USER")
+    password = os.getenv("POSTGRES_PASSWORD")
+    host = os.getenv("POSTGRES_HOST")
+    port = os.getenv("POSTGRES_PORT")
+    db_name = os.getenv("POSTGRES_DB")
+
+    return f"postgresql://{user}:{password}@{host}:{port}/{db_name}"
+
+def save_to_db(df, table_name="pollution"):
+    """
+    Sauvegarde le DataFrame dans la base de données PostgreSQL.
+    
+    Args:
+        df (pandas.DataFrame): DataFrame à sauvegarder.
+        table_name (str): Nom de la table dans laquelle sauvegarder les données.
+    
+    Note:
+        Utilise SQLAlchemy pour gérer la connexion et l'insertion des données.
+    """
+    engine = create_engine(connection_string())
+    df.to_sql(table_name, engine, if_exists='append', index=False)
+    print(f"Données sauvegardées dans la table '{table_name}' de la base de données.")   
 
 def get_paris_latest_measurements():
     """
@@ -150,7 +189,13 @@ def get_sensors_units(df):
     
     return df
 
-
-df_meas = get_paris_latest_measurements()
-df_sensors = get_sensors_units(df_meas)
-
+if __name__ == "__main__":
+    # Récupération des dernières mesures de pollution pour Paris
+    df_meas = get_paris_latest_measurements()
+    df_sensors = get_sensors_units(df_meas)
+    
+    # Sauvegarde des données enrichies dans la base de données
+    if not df_sensors.empty:
+        save_to_db(df_sensors, table_name="pollution")
+    else:
+        print("Aucune donnée de pollution à sauvegarder.")
