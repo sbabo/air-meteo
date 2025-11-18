@@ -1,0 +1,47 @@
+services:
+
+  postgres:
+    container_name: bdd-air-meteo-container
+    image: postgres:15
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - air-meteo-network
+
+  ingestion:
+    container_name: ingestion-container
+    build: ./ingestion
+    restart: on-failure
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+    networks:
+      - air-meteo-network
+
+  pgadmin-container:
+    container_name: pgadmin-container
+    image: dpage/pgadmin4:latest
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+    ports:
+      - "8080:80"
+    depends_on:
+      - postgres
+    networks:
+      - air-meteo-network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  air-meteo-network:
+    driver: bridge
